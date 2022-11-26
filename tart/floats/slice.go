@@ -175,3 +175,8 @@ func (s Slice) CrossUnder(t Slice) bool {
 	return s.Index(0)-t.Index(0) < 0 && s.Index(1)-t.Index(1) > 0
 
 }
+func (s Slice) String(t Slice) float64 {
+
+	return s.Index(0)
+
+}

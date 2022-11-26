@@ -59,6 +59,7 @@ func Reload() {
 
 		"okk": 4444,
 	}}
+
 	//b.Set("close", close)
 	r, err := genv.GetSimpleRunner(b, "/script.js", fmt.Sprintf(`
 					%s
@@ -169,20 +170,21 @@ func WaitForSignal(ctx context.Context, signals ...os.Signal) os.Signal {
 func kline(rt *js.Runner, vu lib.ActiveVU) {
 
 	//logger := logrus.New()
-	strategy := genv.NewStragegy()
+	//strategy := genv.NewStragegy()
 	closes := &floats.Slice{}
 	high := &floats.Slice{}
 	//b.Set("high", high)
 	low := &floats.Slice{}
+
 	rt.Bundle.Vm.Set("close", closes)
 	rt.Bundle.Vm.Set("high", high)
 	rt.Bundle.Vm.Set("low", low)
 
-	strategy.Close(closes)
+	//strategy.Close(closes)
 
 	//fmt.Println(strategy.GetSMA(), "strategy.GetSMA()")
 
-	rt.Bundle.Set("strategy", &strategy)
+	//rt.Bundle.Set("strategy", &strategy)
 	//b.Set("low", low)
 	//rtOpts := lib.RuntimeOptions{Genv: map[string]any{
 	//	"close": close,
@@ -197,25 +199,35 @@ func kline(rt *js.Runner, vu lib.ActiveVU) {
 	var client = binance.NewClient(apiKey, secretKey)
 
 	klines, err := client.NewKlinesService().Symbol(symbol).
-		Interval(interval).Do(context.Background())
+		Interval(interval).Limit(1000).Do(context.Background())
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	for _, event := range klines {
+	for _, k := range klines {
 		//fmt.Println(event.CloseTime)
-		time1 := types.NewTimeFromUnix(0, event.CloseTime*int64(time.Millisecond))
+		time1 := types.NewTimeFromUnix(0, k.CloseTime*int64(time.Millisecond))
 		isClosed := time.Now().After(time1.Time())
 		if isClosed {
-			closes.Push(fixedpoint.MustNewFromString(event.Close).Float64())
-			high.Push(fixedpoint.MustNewFromString(event.High).Float64())
-			low.Push(fixedpoint.MustNewFromString(event.Low).Float64())
+			closes.Push(fixedpoint.MustNewFromString(k.Close).Float64())
+			high.Push(fixedpoint.MustNewFromString(k.High).Float64())
+			low.Push(fixedpoint.MustNewFromString(k.Low).Float64())
 		}
-
+		//kKLines.Push(types2.KLine{
+		//
+		//	Open:   fixedpoint2.MustNewFromString(k.Open),
+		//	Close:  fixedpoint2.MustNewFromString(k.Close),
+		//	High:   fixedpoint2.MustNewFromString(k.High),
+		//	Low:    fixedpoint2.MustNewFromString(k.Low),
+		//	Volume: fixedpoint2.MustNewFromString(k.Volume),
+		//	Closed: true,
+		//})
+		//fmt.Println(kLines.Length())
 		//rsx.Push(fixedpoint.MustNewFromString(event.Low).Float64())
 
 	}
+	//fmt.Println(kKLines.Length(), kKLines.Last())
 	//if call, ok := goja.AssertFunction(exports.Get("default")); ok {
 	//	if _, err = call(goja.Undefined()); err != nil {
 	//
@@ -225,13 +237,23 @@ func kline(rt *js.Runner, vu lib.ActiveVU) {
 	fmt.Println("run once")
 	wsKlineHandler := func(event *binance.WsKlineEvent) {
 		//fmt.Println("kline =======", event)
-		closes.Push(fixedpoint.MustNewFromString(event.Kline.Close).Float64())
+		//closes.Push(fixedpoint.MustNewFromString(event.Kline.Close).Float64())
 
 		if event.Kline.IsFinal {
 			//fmt.Println("kline =======")
 			high.Push(fixedpoint.MustNewFromString(event.Kline.High).Float64())
+			closes.Push(fixedpoint.MustNewFromString(event.Kline.Close).Float64())
 			low.Push(fixedpoint.MustNewFromString(event.Kline.Low).Float64())
-
+			//kKLines.Push(types2.KLine{
+			//
+			//	Open:   fixedpoint2.MustNewFromString(event.Kline.Open),
+			//	Close:  fixedpoint2.MustNewFromString(event.Kline.Close),
+			//	High:   fixedpoint2.MustNewFromString(event.Kline.High),
+			//	Low:    fixedpoint2.MustNewFromString(event.Kline.Low),
+			//	Volume: fixedpoint2.MustNewFromString(event.Kline.Volume),
+			//	Closed: true,
+			//})
+			//fmt.Println(kLines.Length())
 		}
 	}
 
@@ -280,7 +302,7 @@ func main() {
 	}()
 
 	// Add a path.
-	err = watcher.Add("./test.js")
+	err = watcher.Add("./")
 	if err != nil {
 		log.Fatal(err)
 	}

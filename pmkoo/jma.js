@@ -1,4 +1,4 @@
-import ta from "k6/ta";
+import ta from "k6/x/ta";
 
 import {Nats} from 'k6/x/nats';
 

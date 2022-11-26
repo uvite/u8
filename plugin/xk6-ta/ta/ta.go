@@ -3,7 +3,8 @@ package ta
 
 import (
 	"fmt"
-
+	"github.com/c9s/bbgo/pkg/indicator"
+	"github.com/dop251/goja"
 	"sync"
 
 	"github.com/uvite/u8/js/modules"
@@ -21,7 +22,8 @@ type RootModule struct{}
 
 // Ta represents an instance of the timers module.
 type Ta struct {
-	vu modules.VU
+	vu  modules.VU
+	obj map[string]any
 
 	timerStopCounter uint32
 	timerStopsLock   sync.Mutex
@@ -42,7 +44,8 @@ func New() *RootModule {
 // a new instance for each VU.
 func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
 	return &Ta{
-		vu:         vu,
+		vu: vu,
+
 		timerStops: make(map[uint32]chan struct{}),
 	}
 }
@@ -51,6 +54,7 @@ func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
 func (c *Ta) Exports() modules.Exports {
 	return modules.Exports{
 		Named: map[string]interface{}{
+			"genv":       c.Genv,
 			"change":     c.Change,
 			"series":     NewSeries,
 			"slice":      floats.NewSlice,
@@ -61,6 +65,7 @@ func (c *Ta) Exports() modules.Exports {
 			"hma":  c.Hma,
 			"jma":  c.Jma,
 			"dwma": c.DWma,
+			"dmi":  c.Dmi,
 
 			"sma":      c.Sma,
 			"atr":      c.Atr,
@@ -89,6 +94,22 @@ func (c *Ta) Exports() modules.Exports {
 }
 
 func noop() error { return nil }
+
+func (ta Ta) Genv(in floats.Slice, n int64) floats.Slice {
+	out := make([]float64, len(in))
+	sma := indicator.SMA{
+		IntervalWindow: types.IntervalWindow{Window: int(n)},
+	}
+
+	fmt.Println(sma.Length(), "alma.length")
+	for i, v := range in {
+		sma.Update(v)
+		out[i] = sma.Last()
+	}
+
+	return out
+
+}
 
 func (ta Ta) CrossOver(s floats.Slice, t floats.Slice) bool {
 
@@ -139,25 +160,33 @@ func (ta Ta) Change(args ...any) any {
 	return ""
 }
 
+type ReDMI struct {
+	plus  floats.Slice
+	minus floats.Slice
+	adx   floats.Slice
+}
+
 // alma
-//func (ta Ta) Alma(in floats.Slice, n int64, offset float64, sigma int) floats.Slice {
-//
-//	//out := make(floats.Slice, len(in))
-//
-//	alma := inc.ALMA{
-//		IntervalWindow: types.IntervalWindow{Window: int(n)},
-//		Offset:         offset,
-//		Sigma:          sigma,
-//	}
-//	//alma.CalculateAndUpdate(tt.kLines)
-//	//s := NewSma(n)
-//	fmt.Println(alma.Length(), "alma.length")
-//	for _, v := range in {
-//		alma.Update(v)
-//	}
-//
-//	return alma.Values
-//}
+func (ta Ta) Dmi(n, m int) *goja.Object {
+	rt := ta.vu.Runtime()
+	//klines := rt.Get("kline").Export()
+
+	h := rt.Get("high").Export().(*floats.Slice)
+	l := rt.Get("low").Export().(*floats.Slice)
+	c := rt.Get("close").Export().(*floats.Slice)
+
+	var dmi *indicator.DMI
+	dmi = &indicator.DMI{IntervalWindow: types.IntervalWindow{Window: n}, ADXSmoothing: m}
+
+	for i := 0; i < c.Length(); i++ {
+
+		dmi.Update((*h)[i], (*l)[i], (*c)[i])
+	
+	}
+
+	return rt.ToValue(&dmi).ToObject(rt)
+
+}
 
 // alma
 func (ta Ta) Hma(in floats.Slice, n int64) floats.Slice {
